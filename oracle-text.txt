@@ -1,0 +1,297 @@
+conn as sysdba
+1
+
+DROP TABLE item_category;
+DROP TABLE Customers;
+DROP TABLE Orders;
+DROP TABLE Order_items;
+
+
+-- Customer Table Create
+
+CREATE TABLE Customers(
+  customer_id VARCHAR2(100) NOT NULL,
+  cust_first_name VARCHAR2(100) NOT NULL,
+  cust_last_name VARCHAR2(100) NOT NULL
+);
+
+-- Orders Table Create
+
+CREATE TABLE Orders(
+  order_id NUMBER NOT NULL,
+  customer_id VARCHAR2(100) NOT NULL,
+  order_status VARCHAR2(100) NOT NULL,
+  total_order NUMBER NOT NULL	
+);
+
+
+-- Order_items Table Create
+
+CREATE TABLE Order_items(
+  item_id VARCHAR2(100) NOT NULL,
+  order_id NUMBER NOT NULL,
+  unit_price NUMBER NOT NULL,
+  quantity NUMBER NOT NULL
+);
+
+
+-- Primary Keys Altering
+
+ALTER TABLE Customers ADD PRIMARY KEY (customer_id);
+ALTER TABLE Orders ADD PRIMARY KEY (order_id);
+ALTER TABLE Order_items ADD PRIMARY KEY (item_id,order_id);
+
+
+-- Data insertion to Customers
+
+INSERT INTO Customers(customer_id, cust_first_name, cust_last_name) VALUES('C001','martha','baker');
+INSERT INTO Customers(customer_id, cust_first_name, cust_last_name) VALUES('C002','roy','white');
+INSERT INTO Customers(customer_id, cust_first_name, cust_last_name) VALUES('C003','gary','jenkins');
+INSERT INTO Customers(customer_id, cust_first_name, cust_last_name) VALUES('C004','victor','morris');
+INSERT INTO Customers(customer_id, cust_first_name, cust_last_name) VALUES('C005','beverly','hughes');
+
+-- Data insertion to Orders
+
+INSERT INTO Orders(order_id, customer_id, order_status, total_order) VALUES(10101,'C005','completed',5000);
+INSERT INTO Orders(order_id, customer_id, order_status, total_order) VALUES(10102,'C005','cancelled',1600);
+INSERT INTO Orders(order_id, customer_id, order_status, total_order) VALUES(10103,'C004','completed',1825);
+INSERT INTO Orders(order_id, customer_id, order_status, total_order) VALUES(10104,'C001','completed',2400);
+INSERT INTO Orders(order_id, customer_id, order_status, total_order) VALUES(10105,'C003','refunded',2960);
+
+-- Data insertion to Order_items
+
+INSERT INTO Order_items(item_id, order_id, unit_price, quantity) VALUES('QS015',10101,500,3);
+INSERT INTO Order_items(item_id, order_id, unit_price, quantity) VALUES('RB207',10102,320,5);
+INSERT INTO Order_items(item_id, order_id, unit_price, quantity) VALUES('ST500',10101,350,10);
+INSERT INTO Order_items(item_id, order_id, unit_price, quantity) VALUES('QS310',10103,700,2);
+INSERT INTO Order_items(item_id, order_id, unit_price, quantity) VALUES('AD050',10103,425,1);
+INSERT INTO Order_items(item_id, order_id, unit_price, quantity) VALUES('QS310',10104,800,3);
+INSERT INTO Order_items(item_id, order_id, unit_price, quantity) VALUES('ST500',10105,370,8);
+
+
+--Delete Tables
+
+--DROP TABLE Customers;
+--DROP TABLE Orders;
+--DROP TABLE Order_items;
+
+--Select Table Data
+
+--SELECT * FROM Customers;
+--SELECT * FROM Orders;
+--SELECT * FROM Order_items;
+
+SET SERVEROUTPUT ON
+
+
+
+-- ########### 02 (a) ###########
+-- Create a procedure which accepts customer id as a parameter and return the customer’s
+-- full name all in capital letters. You must use the specific function defined in oracle for
+-- combining strings. Handle the exceptions that can occur.
+
+
+
+--+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+CREATE OR REPLACE PROCEDURE get_customer_name(customer_id IN OUT VARCHAR2,emp_full_name IN OUT VARCHAR2)
+IS
+	emp_f_name Customers.cust_first_name%TYPE;
+	emp_l_name Customers.cust_last_name%TYPE;
+BEGIN
+	SELECT cust_first_name,cust_last_name INTO emp_f_name,emp_l_name FROM Customers WHERE customer_id='C001';
+	emp_full_name := UPPER(CONCAT(emp_f_name,CONCAT(' ',emp_l_name)));
+
+END get_customer_name;
+/
+--+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+
+VARIABLE  emp_full_name VARCHAR2(100)
+VARIABLE  customer_id VARCHAR2(100)
+BEGIN
+	:emp_full_name := '';
+	:customer_id := 'C001';
+END;
+/
+
+
+EXECUTE get_customer_name(:customer_id,:emp_full_name)
+PRINT emp_full_name
+
+
+-- ########### 02 (b) ###########
+--Create a procedure which finds the refunded value for each of the orders. For refunded
+--orders, refunded value is 25% of the total order value. For all the orders with any other
+--status (completed/cancelled), refunded value should be shown as zero (no refunded value
+--is calculated). The procedure should finally display only the order id, customer’s full name,
+--order status and the refunded value for all the orders. 
+
+
+VARIABLE  emp_full_name VARCHAR2(100)
+VARIABLE  customer_id_s VARCHAR2(100)
+BEGIN
+	:emp_full_name := '';
+	:customer_id_s := 'C001';
+END;
+/
+EXECUTE get_customer_name(:customer_id,:emp_full_name)
+
+
+--+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+CREATE OR REPLACE PROCEDURE get_refunded_val(add_count_get IN OUT NUMBER,refunded_val IN OUT NUMBER,customer_id_n IN OUT Orders.customer_id%TYPE,order_status_get IN OUT Orders.order_status%TYPE)
+IS
+	emp_id Orders.customer_id%TYPE;
+	emp_f_name Customers.cust_first_name%TYPE;
+	emp_l_name Customers.cust_last_name%TYPE;
+	order_tot Orders.total_order%TYPE;
+	order_st Orders.order_status%TYPE;
+	add_count NUMBER:=0;id_order NUMBER :=0;
+	CURSOR count_cur IS SELECT * FROM Orders;
+BEGIN
+	add_count := add_count_get;
+	FOR I IN count_cur LOOP
+		SELECT customer_id,order_status,total_order INTO emp_id,order_st,order_tot FROM Orders WHERE order_id=10101+add_count;
+		SELECT cust_first_name,cust_last_name INTO emp_f_name,emp_l_name FROM Customers WHERE customer_id = emp_id;
+	    	IF order_st = 'refunded' THEN
+			refunded_val := (order_tot-(order_tot*(25/100)));
+			customer_id_n := emp_id;
+			order_status_get := order_st;
+			id_order := 10101+add_count;
+	    		DBMS_OUTPUT.PUT_LINE('| Order Id = '||emp_id||' |'||' Customer Full Name = '||CONCAT(INITCAP(emp_f_name),CONCAT(' ',INITCAP(emp_l_name)))||
+			' | '||'Order Status = '||order_st||' | '||'Refunded Value = '||refunded_val);
+		ELSE
+	    		refunded_val := 0;
+			customer_id_n := emp_id;
+			order_status_get := order_st;
+			id_order := 10101+add_count;
+	    		DBMS_OUTPUT.PUT_LINE('| Order Id = '||emp_id||' |'||' Customer Full Name = '||CONCAT(INITCAP(emp_f_name),CONCAT(' ',INITCAP(emp_l_name)))||
+			' | '||'Order Status = '||order_st||' | '||'Refunded Value = '||refunded_val);
+		END IF;
+		add_count := add_count + 1;
+	END LOOP;
+END get_refunded_val;
+/
+--+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+-- ########### 02 (c) ###########
+--Write an anonymous block to execute the procedure you created in part (b) above
+
+
+VARIABLE  add_count_get NUMBER;
+VARIABLE  refunded_val NUMBER;
+VARIABLE  customer_id_n VARCHAR2(500);
+VARIABLE  order_status_get VARCHAR2(500);
+DECLARE
+	sample_exception_1 EXCEPTION;
+BEGIN
+	BEGIN
+		:add_count_get := 0;
+		:refunded_val := 0;
+		:customer_id_n :='';
+		:order_status_get := '';
+	END;
+	get_refunded_val(:add_count_get,:refunded_val,:customer_id_n,:order_status_get);
+EXCEPTION
+	WHEN sample_exception_1 THEN
+		DBMS_OUTPUT.PUT_LINE('Error!');
+END;
+/
+
+
+-- ########### 03 (a) ###########
+--Create a function that accepts item id as an input and return the average unit price of the
+--item
+
+
+CREATE OR REPLACE FUNCTION func_get_avg(ite_id IN VARCHAR2)
+RETURN NUMBER
+IS
+	avg_salary NUMBER := 0;
+BEGIN	
+	SELECT AVG(unit_price) INTO avg_salary FROM Order_items WHERE item_id = ite_id;
+	RETURN(avg_salary);
+END func_get_avg;
+/
+
+
+DECLARE
+	id VARCHAR2(100);
+BEGIN
+	id := '&Emp';
+    	DBMS_OUTPUT.PUT_LINE(func_get_avg(id));
+END;
+/
+
+
+
+-- ########### 03 (b) ###########
+--Create a table item_category with the attributes item id and category. Category value will
+--be as CAT 01, CAT 02 etc.
+
+-- item_category Table Create
+
+CREATE TABLE item_category(
+  item_id VARCHAR2(100) NOT NULL,
+  category VARCHAR2(100) NOT NULL
+);
+
+ALTER TABLE item_category ADD PRIMARY KEY (item_id);
+
+
+-- ########### 03 (c) ###########
+--Create a procedure to find the category of each item in the database. The category of each
+--item must be inserted to the previously created table (in part (b)) via this procedure.
+--Items are categorized as follows:
+--If an item is found that does not belong to any of the categories above, raise a user-defined
+--exception to show a message to say that it is not an item. Handle any other exception that
+--can occur
+
+--+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+CREATE OR REPLACE PROCEDURE update_category
+IS
+	CURSOR count_cur IS SELECT * FROM Order_items;
+BEGIN
+	FOR I IN count_cur LOOP
+		IF I.unit_price>=1000 THEN
+			DBMS_OUTPUT.PUT_LINE('Out Of Range');
+		ELSIF I.unit_price>=500 THEN
+			BEGIN
+				INSERT INTO item_category (item_id, category)VALUES (I.item_id,'CAT 03');
+				EXCEPTION
+					WHEN OTHERS THEN
+						DBMS_OUTPUT.PUT_LINE ('Not allowed!');
+			END;
+		ELSIF I.unit_price>=300 THEN
+			BEGIN
+				INSERT INTO item_category (item_id, category)VALUES (I.item_id,'CAT 02');
+				EXCEPTION
+					WHEN OTHERS THEN
+						DBMS_OUTPUT.PUT_LINE ('Not allowed!');
+			END;
+		ELSIF I.unit_price>=0 THEN
+			BEGIN
+				INSERT INTO item_category (item_id, category)VALUES (I.item_id,'CAT 01');
+				EXCEPTION
+					WHEN OTHERS THEN
+						DBMS_OUTPUT.PUT_LINE ('Not allowed!');
+			END;
+		ELSE
+			DBMS_OUTPUT.PUT_LINE('Out Of Range');
+		END IF;
+	END LOOP;
+END update_category;
+/
+--+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+-- ########### 03 (d) ###########
+--Write a procedure to invoke the procedure created in part(c).
+
+CREATE OR REPLACE PROCEDURE run_update_category
+IS
+BEGIN
+	update_category;
+END run_update_category;
+/
